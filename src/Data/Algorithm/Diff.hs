@@ -26,18 +26,23 @@ module Data.Algorithm.Diff
     , getGroupedDiffBy
     ) where
 
+import           Data.Align
 import           Data.Array   (listArray, (!))
+import           Data.These
 import           GHC.Generics
 import           Prelude      hiding (pi)
 
 data DI = F | S | B deriving (Show, Eq)
 
--- | A value is either from the 'First' list, the 'Second' or from 'Both'.
--- 'Both' contains both the left and right values, in case you are using a form
+-- | A value is either from the 'This' list, the 'That' or from 'These'.
+-- 'These' contains both the left and right values, in case you are using a form
 -- of equality that doesn't check all data (for example, if you are using a
 -- newtype to only perform equality on side of a tuple).
-data PolyDiff a b = First a | Second b | Both a b
-    deriving (Show, Eq, Generic)
+-- data PolyDiff a b = This a | That b | These a b
+--   deriving (Show, Eq, Generic)
+
+type PolyDiff a b = These a b
+
 
 -- | This is 'PolyDiff' specialized so both sides are the same type.
 type Diff a = PolyDiff a a
@@ -95,25 +100,25 @@ getGroupedDiff = getGroupedDiffBy (==)
 -- is taken as the first argument.
 getDiffBy :: (a -> b -> Bool) -> [a] -> [b] -> [PolyDiff a b]
 getDiffBy eq a b = markup a b . reverse $ lcs eq a b
-    where markup (x:xs)   ys   (F:ds) = First x  : markup xs ys ds
-          markup   xs   (y:ys) (S:ds) = Second y : markup xs ys ds
-          markup (x:xs) (y:ys) (B:ds) = Both x y : markup xs ys ds
+    where markup (x:xs)   ys   (F:ds) = This x  : markup xs ys ds
+          markup   xs   (y:ys) (S:ds) = That y : markup xs ys ds
+          markup (x:xs) (y:ys) (B:ds) = These x y : markup xs ys ds
           markup _ _ _                = []
 
-getGroupedDiffBy :: (a -> b -> Bool) -> [a] -> [b] -> [PolyDiff [a] [b]]
-getGroupedDiffBy eq a b = go $ getDiffBy eq a b
-    where go (First x  : xs) = let (fs, rest) = goFirsts  xs in First  (x:fs)     : go rest
-          go (Second x : xs) = let (fs, rest) = goSeconds xs in Second (x:fs)     : go rest
-          go (Both x y : xs) = let (fs, rest) = goBoth    xs
-                                   (fxs, fys) = unzip fs
-                               in Both (x:fxs) (y:fys) : go rest
+getGroupedDiffBy :: (a -> b -> Bool) -> [a] -> [b] -> [PolyDiff [a] [b]] -- <- this should be ([a],[b],[(a,b)])
+getGroupedDiffBy eq a b = (go :: ()) $ getDiffBy eq a b
+    where go (This x  : xs) = let (fs, rest) = goThiss  xs in This  (x:fs)     : go rest
+          go (That x : xs) = let (fs, rest) = goThats xs in That (x:fs)     : go rest
+          go (These x y : xs) = let (fs, rest) = goThese    xs
+                                    (fxs, fys) = unzip fs
+                               in These (x:fxs) (y:fys) : go rest
           go [] = []
 
-          goFirsts  (First x  : xs) = let (fs, rest) = goFirsts  xs in (x:fs, rest)
-          goFirsts  xs = ([],xs)
+          goThiss  (This x  : xs) = let (fs, rest) = goThiss  xs in (x:fs, rest)
+          goThiss  xs             = ([],xs)
 
-          goSeconds (Second x : xs) = let (fs, rest) = goSeconds xs in (x:fs, rest)
-          goSeconds xs = ([],xs)
+          goThats (That x : xs) = let (fs, rest) = goThats xs in (x:fs, rest)
+          goThats xs            = ([],xs)
 
-          goBoth    (Both x y : xs) = let (fs, rest) = goBoth xs    in ((x,y):fs, rest)
-          goBoth    xs = ([],xs)
+          goThese    (These x y : xs) = let (fs, rest) = goThese xs    in ((x,y):fs, rest)
+          goThese    xs = ([],xs)

@@ -11,9 +11,11 @@
 -- Generates a string output that is similar to diff normal mode
 -----------------------------------------------------------------------------
 module Data.Algorithm.DiffOutput where
-import           Data.Algorithm.Diff (Diff, PolyDiff (Both, First, Second))
+
+import           Data.Algorithm.Diff (Diff)
 import           Data.Char           (isDigit)
 import           Data.List           (isPrefixOf)
+import           Data.These
 import           Text.PrettyPrint    (Doc, char, comma, empty, int, render,
                                       text, vcat, ($$), (<+>))
 
@@ -23,18 +25,18 @@ diffToLineRanges = toLineRange 1 1
    where
           toLineRange :: Int -> Int -> [Diff [String]] -> [DiffOperation LineRange]
           toLineRange _ _ []=[]
-          toLineRange leftLine rightLine (Both ls _:rs)=
+          toLineRange leftLine rightLine (These ls _:rs)=
                 let lins=length ls
                 in  toLineRange (leftLine+lins) (rightLine+lins) rs
-          toLineRange leftLine rightLine (Second lsS:First lsF:rs)=
+          toLineRange leftLine rightLine (That lsS:This lsF:rs)=
                 toChange leftLine rightLine lsF lsS rs
-          toLineRange leftLine rightLine (First lsF:Second lsS:rs)=
+          toLineRange leftLine rightLine (This lsF:That lsS:rs)=
                 toChange leftLine rightLine lsF lsS rs
-          toLineRange leftLine rightLine (Second lsS:rs)=
+          toLineRange leftLine rightLine (That lsS:rs)=
                 let linesS=length lsS
                     diff=Addition (LineRange (rightLine,rightLine+linesS-1) lsS) (leftLine-1)
                 in  diff : toLineRange leftLine (rightLine+linesS) rs
-          toLineRange leftLine rightLine  (First lsF:rs)=
+          toLineRange leftLine rightLine  (This lsF:rs)=
                 let linesF=length lsF
                     diff=Deletion (LineRange (leftLine,leftLine+linesF-1) lsF) (rightLine-1)
                 in  diff: toLineRange(leftLine+linesF) rightLine rs

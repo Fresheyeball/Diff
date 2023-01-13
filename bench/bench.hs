@@ -9,9 +9,6 @@ import           System.Random
 
 import           Data.Algorithm.Diff
 
-instance NFData a => NFData (Diff a)
-
-
 main :: IO ()
 main = doBenchMarks 37
 

@@ -19,6 +19,8 @@ library
       array
     , base    >=3   && <=6
     , pretty  >=1.1
+    , these
+    , semialign
 
   hs-source-dirs:   src
   exposed-modules:
@@ -44,6 +46,8 @@ test-suite diff-tests
     , directory
     , pretty
     , process
+    , these
+    , semialign
     , QuickCheck
     , test-framework
     , test-framework-quickcheck2
@@ -63,6 +67,8 @@ benchmark bench
     , criterion
     , deepseq
     , pretty
+    , these
+    , semialign
     , random
 
   other-modules:

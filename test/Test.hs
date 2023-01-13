@@ -1,21 +1,22 @@
 module Main where
 
-import Test.Framework (defaultMain, testGroup)
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.QuickCheck
-import Data.Algorithm.Diff
-import Data.Algorithm.DiffContext
-import Data.Algorithm.DiffOutput
-import Text.PrettyPrint
+import           Data.Algorithm.Diff
+import           Data.Algorithm.DiffContext
+import           Data.Algorithm.DiffOutput
+import           Test.Framework                       (defaultMain, testGroup)
+import           Test.Framework.Providers.QuickCheck2 (testProperty)
+import           Test.QuickCheck
+import           Text.PrettyPrint
 
-import System.IO
-import System.Exit
-import System.IO.Unsafe (unsafePerformIO)
-import Debug.Trace (trace)
-import System.Environment (getArgs)
-import Data.Maybe (mapMaybe, catMaybes)
-import System.Process (readProcessWithExitCode)
-import System.Directory (getTemporaryDirectory)
+import           Data.Maybe                           (catMaybes, mapMaybe)
+import           Data.These
+import           Debug.Trace                          (trace)
+import           System.Directory                     (getTemporaryDirectory)
+import           System.Environment                   (getArgs)
+import           System.Exit
+import           System.IO
+import           System.IO.Unsafe                     (unsafePerformIO)
+import           System.Process                       (readProcessWithExitCode)
 
 
 main :: IO ()
@@ -29,9 +30,9 @@ main = defaultMain [ testGroup "sub props" [
                      testGroup "diff props" [
                         slTest "lcsEmpty" prop_lcsEmpty,
                         slTest "lcsSelf" prop_lcsSelf,
-                        slTest2 "lcsBoth" prop_lcsBoth,
-                        slTest2 "recover first" prop_recoverFirst,
-                        slTest2 "recover second" prop_recoverSecond,
+                        slTest2 "lcsThese" prop_lcsThese,
+                        slTest2 "recover first" prop_recoverThis,
+                        slTest2 "recover second" prop_recoverThat,
                         slTest2 "lcs" prop_lcs
                      ],
                      testGroup "output props" [
@@ -78,23 +79,23 @@ diffLCS xs ys = recoverLCS $ getDiff xs ys
 
 -- | Recovers the (longest) common subsequence from a diff.
 recoverLCS :: [Diff a] -> [a]
-recoverLCS (Both x _ : xs) = x : recoverLCS xs
-recoverLCS (_ : xs) = recoverLCS xs
-recoverLCS [] = []
+recoverLCS (These x _ : xs) = x : recoverLCS xs
+recoverLCS (_ : xs)         = recoverLCS xs
+recoverLCS []               = []
 
 -- | Recovers the first list from a diff.
-recoverFirst :: [Diff a] -> [a]
-recoverFirst (First x  : xs) = x : recoverFirst xs
-recoverFirst (Both x _ : xs) = x : recoverFirst xs
-recoverFirst (_ : xs) = recoverFirst xs
-recoverFirst [] = []
+recoverThis :: [Diff a] -> [a]
+recoverThis (This x  : xs)   = x : recoverThis xs
+recoverThis (These x _ : xs) = x : recoverThis xs
+recoverThis (_ : xs)         = recoverThis xs
+recoverThis []               = []
 
 -- | Recovers the second list from a diff.
-recoverSecond :: [Diff a] -> [a]
-recoverSecond (Second x  : xs) = x : recoverSecond xs
-recoverSecond (Both x _ : xs) = x : recoverSecond xs
-recoverSecond (_ : xs) = recoverSecond xs
-recoverSecond [] = []
+recoverThat :: [Diff a] -> [a]
+recoverThat (That x  : xs)   = x : recoverThat xs
+recoverThat (These x _ : xs) = x : recoverThat xs
+recoverThat (_ : xs)         = recoverThat xs
+recoverThat []               = []
 
 -- | Indicates whether a list is a longest common subsequence of two
 -- lists.
@@ -112,14 +113,14 @@ lenLCS (x:xs) (y:ys) | x == y = 1 + lenLCS xs ys
                      | otherwise = max (lenLCS (x:xs) ys) (lenLCS xs (y:ys))
 
 
-prop_recoverFirst xs ys = recoverFirst (getDiff xs ys) == xs
-prop_recoverSecond xs ys = recoverSecond (getDiff xs ys) == ys
+prop_recoverThis xs ys = recoverThis (getDiff xs ys) == xs
+prop_recoverThat xs ys = recoverThat (getDiff xs ys) == ys
 prop_lcs xs ys = isLCS (diffLCS xs ys) xs ys
 prop_lcsEmpty xs = diffLCS xs [] == [] && diffLCS [] xs == []
 prop_lcsSelf xs = diffLCS xs xs == xs
-prop_lcsBoth xs ys = all areMatch $ getDiff xs ys
-    where areMatch (Both x y) = x == y
-          areMatch _ = True
+prop_lcsThese xs ys = all areMatch $ getDiff xs ys
+    where areMatch (These x y) = x == y
+          areMatch _           = True
 
 -- | Lists of no more than twelve elements.
 shortLists :: (Arbitrary a) => Gen [a]
@@ -198,10 +199,10 @@ prop_context_diff :: Bool
 prop_context_diff =
     expected == actual
     where
-      expected = [[Both ["a","b"] ["a","b"],
-                   First ["c"],
-                   Both ["d","e"] ["d","e"]],
-                  [Both ["i","j"] ["i","j"],First ["k"]]]
+      expected = [[These ["a","b"] ["a","b"],
+                   This ["c"],
+                   These ["d","e"] ["d","e"]],
+                  [These ["i","j"] ["i","j"],This ["k"]]]
       actual = getContextDiff 2 (lines textA) (lines textB)
       textA = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\n"
       textB = "a\nb\nd\ne\nf\ng\nh\ni\nj\n"
