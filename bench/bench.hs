@@ -1,13 +1,16 @@
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Main where
 
-import Criterion.Main
-import Control.DeepSeq
-import System.Random
+import           Control.DeepSeq
+import           Criterion.Main
+import           System.Random
 
-import Data.Algorithm.Diff
+import           Data.Algorithm.Diff
 
-instance NFData (Diff a) where
-    
+instance NFData a => NFData (Diff a)
+
 
 main :: IO ()
 main = doBenchMarks 37
@@ -20,4 +23,4 @@ doBenchMarks seed =
   in s1000_1 `deepseq` s1000_2 `deepseq` defaultMain [
     bgroup "diff bool lists" $ [bench "1000 bools" $ nf (getDiff s1000_1) s1000_2]
     ]
-    
+

@@ -12,6 +12,8 @@
 -- <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.6927>. It is O(mn) in space.
 -- The algorithm is the same one used by standared Unix diff.
 -----------------------------------------------------------------------------
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Data.Algorithm.Diff
     ( Diff, PolyDiff(..)
@@ -24,9 +26,9 @@ module Data.Algorithm.Diff
     , getGroupedDiffBy
     ) where
 
-import Prelude hiding (pi)
-
-import Data.Array (listArray, (!))
+import           Data.Array   (listArray, (!))
+import           GHC.Generics
+import           Prelude      hiding (pi)
 
 data DI = F | S | B deriving (Show, Eq)
 
@@ -35,7 +37,7 @@ data DI = F | S | B deriving (Show, Eq)
 -- of equality that doesn't check all data (for example, if you are using a
 -- newtype to only perform equality on side of a tuple).
 data PolyDiff a b = First a | Second b | Both a b
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 -- | This is 'PolyDiff' specialized so both sides are the same type.
 type Diff a = PolyDiff a a
@@ -49,7 +51,7 @@ instance Ord DL
 
 canDiag :: (a -> b -> Bool) -> [a] -> [b] -> Int -> Int -> Int -> Int -> Bool
 canDiag eq as bs lena lenb = \ i j ->
-   if i < lena && j < lenb then (arAs ! i) `eq` (arBs ! j) else False
+   (i < lena && j < lenb) && ((arAs ! i) `eq` (arBs ! j))
     where arAs = listArray (0,lena - 1) as
           arBs = listArray (0,lenb - 1) bs
 
@@ -58,17 +60,17 @@ dstep cd dls = hd:pairMaxes rst
   where (hd:rst) = nextDLs dls
         nextDLs [] = []
         nextDLs (dl:rest) = dl':dl'':nextDLs rest
-          where dl'  = addsnake cd $ dl {poi=poi dl + 1, path=(F : pdl)}
-                dl'' = addsnake cd $ dl {poj=poj dl + 1, path=(S : pdl)}
+          where dl'  = addsnake cd $ dl {poi=poi dl + 1, path=F : pdl}
+                dl'' = addsnake cd $ dl {poj=poj dl + 1, path=S : pdl}
                 pdl = path dl
-        pairMaxes [] = []
-        pairMaxes [x] = [x]
+        pairMaxes []         = []
+        pairMaxes [x]        = [x]
         pairMaxes (x:y:rest) = max x y:pairMaxes rest
 
 addsnake :: (Int -> Int -> Bool) -> DL -> DL
 addsnake cd dl
     | cd pi pj = addsnake cd $
-                 dl {poi = pi + 1, poj = pj + 1, path=(B : path dl)}
+                 dl {poi = pi + 1, poj = pj + 1, path=B : path dl}
     | otherwise   = dl
     where pi = poi dl; pj = poj dl
 
@@ -96,7 +98,7 @@ getDiffBy eq a b = markup a b . reverse $ lcs eq a b
     where markup (x:xs)   ys   (F:ds) = First x  : markup xs ys ds
           markup   xs   (y:ys) (S:ds) = Second y : markup xs ys ds
           markup (x:xs) (y:ys) (B:ds) = Both x y : markup xs ys ds
-          markup _ _ _ = []
+          markup _ _ _                = []
 
 getGroupedDiffBy :: (a -> b -> Bool) -> [a] -> [b] -> [PolyDiff [a] [b]]
 getGroupedDiffBy eq a b = go $ getDiffBy eq a b

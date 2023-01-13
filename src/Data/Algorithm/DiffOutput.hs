@@ -11,11 +11,11 @@
 -- Generates a string output that is similar to diff normal mode
 -----------------------------------------------------------------------------
 module Data.Algorithm.DiffOutput where
-import Data.Algorithm.Diff
-import Text.PrettyPrint
-import Data.Char
-import Data.List
-import Data.Monoid (mappend)
+import           Data.Algorithm.Diff (Diff, PolyDiff (Both, First, Second))
+import           Data.Char           (isDigit)
+import           Data.List           (isPrefixOf)
+import           Text.PrettyPrint    (Doc, char, comma, empty, int, render,
+                                      text, vcat, ($$), (<+>))
 
 -- | Converts Diffs to DiffOperations
 diffToLineRanges :: [Diff [String]] -> [DiffOperation LineRange]
@@ -82,7 +82,7 @@ parsePrettyDiffs = reverse . doParse [] . lines
         let (mnd,r) = parseDiff s
         in case mnd of
             Just nd -> doParse (nd:diffs) r
-            _          -> doParse diffs r
+            _       -> doParse diffs r
     parseDiff [] = (Nothing,[])
     parseDiff (h:rs) = let
         (r1,hrs1) = parseRange h
@@ -90,7 +90,7 @@ parsePrettyDiffs = reverse . doParse [] . lines
                 ('d':hrs2) -> parseDel r1 hrs2 rs
                 ('a':hrs2) -> parseAdd r1 hrs2 rs
                 ('c':hrs2) -> parseChange r1 hrs2 rs
-                _ -> (Nothing,rs)
+                _          -> (Nothing,rs)
     parseDel r1 hrs2 rs = let
         (r2,_) = parseRange hrs2
         (ls,rs2) = span (isPrefixOf "<") rs
@@ -112,14 +112,14 @@ parsePrettyDiffs = reverse . doParse [] . lines
         (fstLine,rs) = span isDigit l
         (sndLine,rs3) = case rs of
                                     (',':rs2) -> span isDigit rs2
-                                    _ -> (fstLine,rs)
+                                    _         -> (fstLine,rs)
         in ((read fstLine,read sndLine),rs3)
 
 -- | Line number alias
 type LineNo = Int
 
 -- | Line Range: start, end and contents
-data LineRange = LineRange { lrNumbers :: (LineNo, LineNo)
+data LineRange = LineRange { lrNumbers  :: (LineNo, LineNo)
                            , lrContents :: [String]
                            }
             deriving (Show,Read,Eq,Ord)

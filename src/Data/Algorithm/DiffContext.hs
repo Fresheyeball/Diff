@@ -17,10 +17,9 @@ module Data.Algorithm.DiffContext
     , prettyContextDiff
     ) where
 
-import Data.Algorithm.Diff (PolyDiff(..), Diff, getGroupedDiff)
-import Data.List (groupBy)
-import Data.Monoid (mappend)
-import Text.PrettyPrint (Doc, text, empty, hcat)
+import           Data.Algorithm.Diff (Diff, PolyDiff (..), getGroupedDiff)
+import           Data.List           (groupBy)
+import           Text.PrettyPrint    (Doc, empty, hcat, text)
 
 type ContextDiff c = [[Diff [c]]]
 
@@ -29,7 +28,7 @@ groupBy' :: (a -> a -> Bool) -> [a] -> [[a]]
 groupBy' _ [] = []
 groupBy' eq (x : xs) = go [x] xs
     where
-      go (x : xs) (y : zs) | eq x y = go (y : x : xs) zs
+      go (x' : xs') (y : zs) | eq x' y = go (y : x' : xs') zs
       go g (y : zs) = reverse g : go [y] zs
       go g [] = [reverse g]
 
@@ -73,10 +72,10 @@ getContextDiffNew ::
   -> [a]
   -> ContextDiff a
 getContextDiffNew context a b =
-    groupBy' (\a b -> not (isBoth a && isBoth b)) $ doPrefix $ getGroupedDiff a b
+    groupBy' (\a' b' -> not (isBoth a' && isBoth b')) $ doPrefix $ getGroupedDiff a b
     where
       isBoth (Both {}) = True
-      isBoth _ = False
+      isBoth _         = False
       -- Handle the common text leading up to a diff.
       doPrefix [] = []
       doPrefix [Both _ _] = []
@@ -87,17 +86,17 @@ getContextDiffNew context a b =
       doPrefix (d : ds) = doSuffix (d : ds)
       -- Handle the common text following a diff.
       doSuffix [] = []
-      doSuffix [Both xs ys] = [Both (maybe xs (\n -> take n xs) context) (maybe ys (\n -> take n ys) context)]
+      doSuffix [Both xs ys] = [Both (maybe xs (`take` xs) context) (maybe ys (`take` ys) context)]
       doSuffix (Both xs ys : more)
           | maybe True (\n -> length xs <= n * 2) context =
               Both xs ys : doPrefix more
       doSuffix (Both xs ys : more) =
-          Both (maybe xs (\n -> take n xs) context) (maybe ys (\n -> take n ys) context)
-                   : doPrefix (Both (maybe mempty (\n -> drop n xs) context) (maybe mempty (\n -> drop n ys) context) : more)
+          Both (maybe xs (`take` xs) context) (maybe ys (`take` ys) context)
+                   : doPrefix (Both (maybe mempty (`drop` xs) context) (maybe mempty (`drop` ys) context) : more)
       doSuffix (d : ds) = d : doSuffix ds
 
 getContextDiff :: Eq a => Int -> [a] -> [a] -> ContextDiff a
-getContextDiff context a b = getContextDiffNew (Just context) a b
+getContextDiff context = getContextDiffNew (Just context)
 
 -- | Do a grouped diff and then split up the chunks into runs that
 -- contain differences surrounded by N lines of unchanged text.  If
@@ -112,30 +111,30 @@ getContextDiffOld context a b =
       -- the following changes.
       split (Both xs ys) =
           case length xs of
-            n | n > (2 * context) -> [Both (take context xs) (take context ys), Both (drop (n - context) xs) (drop (n - context) ys)]
+            n | n > 2 * context -> [Both (take context xs) (take context ys), Both (drop (n - context) xs) (drop (n - context) ys)]
             _ -> [Both xs ys]
       split x = [x]
       -- If split created a pair of Both runs at the beginning or end
       -- of the diff, remove the outermost.
-      trimHead [] = []
-      trimHead [Both _ _] = []
-      trimHead [Both _ _, Both _ _] = []
+      trimHead []                               = []
+      trimHead [Both _ _]                       = []
+      trimHead [Both _ _, Both _ _]             = []
       trimHead (Both _ _ : x@(Both _ _) : more) = x : more
-      trimHead xs = trimTail xs
+      trimHead xs                               = trimTail xs
       trimTail [x@(Both _ _), Both _ _] = [x]
-      trimTail (x : more) = x : trimTail more
-      trimTail [] = []
+      trimTail (x : more)               = x : trimTail more
+      trimTail []                       = []
       -- If we see Second before First swap them so that the deletions
       -- appear before the additions.
       swap (x@(Second _) : y@(First _) : xs) = y : x : swap xs
-      swap (x : xs) = x : swap xs
-      swap [] = []
+      swap (x : xs)                          = x : swap xs
+      swap []                                = []
       -- Split the list wherever we see adjacent Both constructors
       group xs =
           groupBy (\ x y -> not (isBoth x && isBoth y)) xs
           where
             isBoth (Both _ _) = True
-            isBoth _ = False
+            isBoth _          = False
 
 -- | Pretty print a ContextDiff in the manner of diff -u.
 prettyContextDiff ::
